@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARAM Ranked Sistemi</title>
+    <style>
+        :root {
+            --lol-gold: #c8aa6e;
+            --lol-dark: #0a1428;
+            --lol-blue: #0ac8b9;
+            --bg-dark: #09090c;
+            --box-bg: #1e2328;
+        }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--bg-dark); 
+            color: #ffffff; 
+            text-align: center; 
+            padding: 30px 15px; 
+            margin: 0;
+        }
+        .lang-selector { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; }
+        .lang-btn { background: #111; color: #aaa; border: 1px solid #444; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .lang-btn.active { background: var(--lol-gold); color: #000; border-color: var(--lol-gold); }
+        
+        .container { max-width: 600px; margin: 40px auto 0; background: var(--box-bg); padding: 30px; border-radius: 8px; box-shadow: 0 0 20px rgba(200, 170, 110, 0.1); border: 1px solid #333; position: relative; }
+        h2 { color: var(--lol-gold); margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; }
+        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input { flex: 1; padding: 12px; border-radius: 4px; border: 1px solid #444; background-color: #111; color: white; font-size: 16px; }
+        input:focus { outline: none; border-color: var(--lol-gold); }
+        .main-btn { padding: 12px; background-color: var(--lol-gold); color: #000; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 16px; width: 100%; transition: 0.2s; text-transform: uppercase; }
+        .main-btn:hover { background-color: #e0c286; box-shadow: 0 0 10px var(--lol-gold); }
+        #loading { color: var(--lol-blue); margin-top: 20px; font-style: italic; }
+        .result { margin-top: 25px; padding: 25px; background: linear-gradient(145deg, #111 0%, #1e2328 100%); border-radius: 8px; display: none; border: 1px solid var(--lol-gold); }
+        .rank-container { margin-bottom: 15px; }
+        .rank { font-size: 34px; font-weight: bold; color: var(--lol-gold); text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        .lp { font-size: 26px; font-weight: bold; color: var(--lol-blue); margin-top: 5px; }
+        .mmr-text { font-size: 14px; color: #777; margin-bottom: 20px; font-style: italic; }
+        .stats { display: flex; justify-content: space-around; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 6px; }
+        .stat-box h3 { margin: 0 0 5px 0; font-size: 14px; text-transform: uppercase; color: #888; }
+        .stat-box p { margin: 0; font-size: 22px; font-weight: bold; }
+        .win { color: #4caf50; } .loss { color: #f44336; } .winrate { color: var(--lol-blue); }
+        .leaderboard-container { max-width: 600px; margin: 40px auto 0; background: var(--box-bg); padding: 20px; border-radius: 8px; border: 1px solid #333; }
+        .leaderboard-container h3 { color: var(--lol-gold); margin-top: 0; text-transform: uppercase; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
+        th { color: #888; font-size: 14px; text-transform: uppercase; }
+        tr:hover { background-color: rgba(200, 170, 110, 0.05); }
+        .rank-number { color: var(--lol-gold); font-weight: bold; width: 30px; }
+        .player-name { font-weight: bold; color: #fff; }
+        .player-mmr { color: var(--lol-blue); font-weight: bold; text-align: right; }
+
+        .donate-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: var(--lol-gold);
+            color: #000;
+            padding: 12px 20px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(200, 170, 110, 0.3);
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+        }
+        .donate-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(200, 170, 110, 0.5);
+            background-color: #e0c286;
+        }
+    </style>
+</head>
+<body>
+
+<div class="lang-selector">
+    <button class="lang-btn active" id="btn-tr" onclick="setLanguage('tr')">TR</button>
+    <button class="lang-btn" id="btn-en" onclick="setLanguage('en')">EN</button>
+</div>
+
+<div class="container">
+    <h2 id="t-title">ARAM Dereceli Sistemi</h2>
+    <div class="input-group">
+        <input type="text" id="gameName" placeholder="Oyun İçi Adı (Örn: Faker)">
+        <input type="text" id="tagLine" placeholder="Etiket (Örn: KR1)">
+    </div>
+    <button class="main-btn" id="t-searchBtn" onclick="searchPlayer()">Profili Getir</button>
+
+    <p id="loading" style="display: none;"><span id="t-loading">Riot Veritabanına Bağlanılıyor...</span></p>
+    
+    <div class="result" id="resultBox">
+        <div class="rank-container">
+            <div class="rank" id="rankDisplay">Derece Hesaplanıyor...</div>
+            <div class="lp" id="lpDisplay">0 LP</div>
+        </div>
+        <div class="mmr-text"><span id="t-hiddenMmr">Gizli MMR:</span> <span id="mmrDisplay">0</span></div>
+        
+        <div class="stats">
+            <div class="stat-box">
+                <h3 id="t-wins">Galibiyet</h3>
+                <p id="winsDisplay" class="win">0</p>
+            </div>
+            <div class="stat-box">
+                <h3 id="t-losses">Mağlubiyet</h3>
+                <p id="lossesDisplay" class="loss">0</p>
+            </div>
+            <div class="stat-box">
+                <h3 id="t-winrate">Kazanma Oranı</h3>
+                <p id="winrateDisplay" class="winrate">%0</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="leaderboard-container">
+    <h3 id="t-leaderboardTitle">🏆 En İyi 10 ARAM Oyuncusu</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th id="t-playerTh">Oyuncu</th>
+                <th id="t-mmrTh" style="text-align: right;">MMR (Sıralama Puanı)</th>
+            </tr>
+        </thead>
+        <tbody id="leaderboardBody">
+        </tbody>
+    </table>
+</div>
+
+<a href="https://donate.bynogame.com/ciawzer" target="_blank" class="donate-btn" id="t-donateBtn">
+    ☕ Projeyi Destekle
+</a>
+
+<script>
+    const i18n = {
+        tr: {
+            title: "ARAM Dereceli Sistemi", gameName: "Oyun İçi Adı (Örn: Faker)", tagLine: "Etiket (Örn: KR1)",
+            searchBtn: "Profili Getir", loading: "Riot Veritabanına Bağlanılıyor...", hiddenMmr: "Gizli MMR:",
+            wins: "Galibiyet", losses: "Mağlubiyet", winrate: "Kazanma Oranı", leaderboardTitle: "🏆 En İyi 10 ARAM Oyuncusu",
+            playerTh: "Oyuncu", mmrTh: "MMR (Sıralama Puanı)", errEmpty: "Lütfen oyun içi adınızı ve etiketinizi girin.",
+            errNotFound: "Oyuncu bulunamadı!", errData: "Maç verileri çekilemedi!", errSpam: "Çok fazla istek attınız!",
+            ranks: ["Demir", "Bronz", "Gümüş", "Altın", "Platin", "Zümrüt", "Elmas"], master: "Ustalık (Master+)",
+            donateBtn: "☕ Projeyi Destekle" 
+        },
+        en: {
+            title: "ARAM Ranked System", gameName: "In-Game Name (e.g., Faker)", tagLine: "Tagline (e.g., KR1)",
+            searchBtn: "Get Profile", loading: "Connecting to Riot Database...", hiddenMmr: "Hidden MMR:",
+            wins: "Wins", losses: "Losses", winrate: "Win Rate", leaderboardTitle: "🏆 Top 10 ARAM Players",
+            playerTh: "Player", mmrTh: "MMR (Ranking Points)", errEmpty: "Please enter your in-game name and tagline.",
+            errNotFound: "Player not found!", errData: "Could not fetch match data!", errSpam: "Too many requests!",
+            ranks: ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Emerald", "Diamond"], master: "Master+",
+            donateBtn: "☕ Support the Project" 
+        }
+    };
+
+    let currentLang = 'tr';
+    let currentMmrValue = null; 
+
+    function escapeHTML(str) {
+        if (!str) return "";
+        return String(str).replace(/[&<>'"]/g, match => {
+            const escape = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' };
+            return escape[match];
+        });
+    }
+
+    function setLanguage(lang) {
+        currentLang = lang;
+        document.getElementById('btn-tr').classList.toggle('active', lang === 'tr');
+        document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+        document.getElementById('t-title').innerText = i18n[lang].title;
+        document.getElementById('gameName').placeholder = i18n[lang].gameName;
+        document.getElementById('tagLine').placeholder = i18n[lang].tagLine;
+        document.getElementById('t-searchBtn').innerText = i18n[lang].searchBtn;
+        document.getElementById('t-loading').innerText = i18n[lang].loading;
+        document.getElementById('t-hiddenMmr').innerText = i18n[lang].hiddenMmr;
+        document.getElementById('t-wins').innerText = i18n[lang].wins;
+        document.getElementById('t-losses').innerText = i18n[lang].losses;
+        document.getElementById('t-winrate').innerText = i18n[lang].winrate;
+        document.getElementById('t-leaderboardTitle').innerText = i18n[lang].leaderboardTitle;
+        document.getElementById('t-playerTh').innerText = i18n[lang].playerTh;
+        document.getElementById('t-mmrTh').innerText = i18n[lang].mmrTh;
+        document.getElementById('t-donateBtn').innerText = i18n[lang].donateBtn; 
+
+        if (currentMmrValue !== null) {
+            const rankInfo = getRankDetails(currentMmrValue);
+            document.getElementById('rankDisplay').innerText = rankInfo.rank;
+        }
+    }
+
+    function getRankDetails(mmr) {
+        if (mmr < 400) mmr = 400; 
+        let lp = mmr % 100; 
+        if (mmr >= 3200) return { rank: i18n[currentLang].master, lp: mmr - 3200 }; 
+        const base = 400; 
+        const tierIndex = Math.floor((mmr - base) / 400); 
+        const divisionMMR = (mmr - base) % 400; 
+        const division = 4 - Math.floor(divisionMMR / 100); 
+        const tierName = i18n[currentLang].ranks[tierIndex];
+        return { rank: `${tierName} ${division}`, lp: lp };
+    }
+
+    async function searchPlayer() {
+        const gameName = document.getElementById('gameName').value.trim();
+        const tagLine = document.getElementById('tagLine').value.trim();
+        const resultBox = document.getElementById('resultBox');
+        const loading = document.getElementById('loading');
+
+        if (!gameName || !tagLine) return alert(i18n[currentLang].errEmpty);
+
+        resultBox.style.display = "none";
+        loading.style.display = "block";
+
+        try {
+            // YENİ: Localhost silindi, direkt /api/ rotası kullanılıyor
+            const playerRes = await fetch(`/api/get-player/${gameName}/${tagLine}`);
+            const playerData = await playerRes.json();
+            
+            if (playerRes.status === 429) throw new Error(i18n[currentLang].errSpam);
+            if (!playerData.success) throw new Error(i18n[currentLang].errNotFound);
+
+            const mmrRes = await fetch(`/api/get-aram-mmr/${playerData.puuid}`);
+            const mmrData = await mmrRes.json();
+            
+            if (mmrRes.status === 429) throw new Error(i18n[currentLang].errSpam);
+            if (!mmrData.success) throw new Error(i18n[currentLang].errData);
+
+            currentMmrValue = mmrData.estimatedMMR;
+            const rankInfo = getRankDetails(currentMmrValue);
+            
+            document.getElementById('rankDisplay').innerText = rankInfo.rank;
+            document.getElementById('lpDisplay').innerText = `${rankInfo.lp} LP`;
+            document.getElementById('mmrDisplay').innerText = mmrData.estimatedMMR;
+            document.getElementById('winsDisplay').innerText = mmrData.wins;
+            document.getElementById('lossesDisplay').innerText = mmrData.losses;
+            document.getElementById('winrateDisplay').innerText = mmrData.winRate;
+
+            loading.style.display = "none";
+            resultBox.style.display = "block";
+            
+            loadLeaderboard(); 
+
+        } catch (error) {
+            alert(error.message);
+            loading.style.display = "none";
+        }
+    }
+
+    async function loadLeaderboard() {
+        try {
+            // YENİ: Localhost silindi, direkt /api/ rotası kullanılıyor
+            const response = await fetch('/api/leaderboard');
+            const data = await response.json();
+            
+            if (data.success) {
+                const tbody = document.getElementById('leaderboardBody');
+                tbody.innerHTML = ""; 
+                
+                data.leaderboard.forEach((player, index) => {
+                    const safeName = escapeHTML(player.gameName);
+                    const safeTag = escapeHTML(player.tagLine);
+                    const safeMmr = escapeHTML(player.mmr);
+
+                    const row = `
+                        <tr>
+                            <td class="rank-number">${index + 1}</td>
+                            <td class="player-name">${safeName}#${safeTag}</td>
+                            <td class="player-mmr">${safeMmr}</td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            }
+        } catch (error) {
+            console.error("Sıralama çekilemedi.");
+        }
+    }
+
+    window.onload = loadLeaderboard;
+</script>
+
+</body>
+</html>
